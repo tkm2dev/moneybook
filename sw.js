@@ -1,5 +1,5 @@
 /* MoneyBook service worker — cache-first app shell + runtime cache */
-const CACHE = 'moneybook-v2.1.0';
+const CACHE = 'moneybook-v2.2.0';
 const CORE = [
   './', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js',

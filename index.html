@@ -197,6 +197,31 @@ input:focus,select:focus{outline:2px solid var(--gold);outline-offset:1px}
 .imp-row .am.in{color:var(--green)}.imp-row .am.out{color:var(--red)}
 .imp-sum{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap;gap:6px}
 
+/* ===== v2.2 quick entry ===== */
+.amt-display{font-size:36px;font-weight:800;text-align:right;padding:6px 10px 2px;font-variant-numeric:tabular-nums;
+  color:var(--red);min-height:52px;word-break:break-all;line-height:1.2}
+.amt-display.in{color:var(--green)} .amt-display.tr{color:var(--navy)}
+.amt-sub{text-align:right;font-size:12.5px;color:var(--muted);margin-bottom:10px;min-height:18px}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.pad button{padding:12px 0;font-size:20px;font-weight:700;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.pad button:active{background:var(--gold-soft)}
+.pad .fn{background:var(--bg);color:var(--muted);font-size:16px}
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;max-height:196px;overflow-y:auto;padding:2px}
+.cat-cell{border:1.5px solid var(--line);border-radius:12px;background:#fff;padding:9px 2px 7px;display:flex;flex-direction:column;
+  align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--ink);line-height:1.2}
+.cat-cell .ci{font-size:21px;line-height:1}
+.cat-cell.on{background:var(--navy);border-color:var(--navy);color:var(--gold-soft)}
+.date-row{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.date-row .chip{white-space:nowrap}
+.date-row input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.qa-strip{display:flex;gap:8px;overflow-x:auto;padding:0 2px 12px;scrollbar-width:thin}
+.qa{flex:none;display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:99px;
+  padding:9px 15px;font-size:13.5px;font-weight:700;color:var(--ink)}
+.qa:active{background:var(--gold-soft)}
+.qa .a{color:var(--red);font-variant-numeric:tabular-nums}
+.qa.in .a{color:var(--green)}
+.qa-lbl{font-size:12px;font-weight:700;color:var(--muted);padding:0 2px 6px}
+
 /* ===== bottom nav ===== */
 nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:40;
   padding-bottom:env(safe-area-inset-bottom)}
@@ -286,6 +311,15 @@ nav button.fab-slot{position:relative}
         <div class="b" :class="{neg:accBalance(a.id)<0}">{{fmt(accBalance(a.id))}}</div>
       </div>
     </div>
+
+    <template v-if="quickAdds.length">
+      <div class="qa-lbl">⚡ บันทึกด่วน — แตะครั้งเดียวลงรายการวันนี้ทันที</div>
+      <div class="qa-strip">
+        <button class="qa" v-for="(q,i) in quickAdds" :key="i" :class="{in:q.type==='in'}" @click="quickSave(q)">
+          {{catIcon(q.cat)}} {{q.cat}} <span class="a">{{q.type==='in'?'+':'−'}}{{fmt(q.amount)}}</span>
+        </button>
+      </div>
+    </template>
 
     <div class="tiles">
       <div class="tile in"><div class="k">รายรับเดือนนี้</div><div class="v">{{fmt(mIncome)}}</div></div>
@@ -476,17 +510,25 @@ nav button.fab-slot{position:relative}
       <button :class="{'on-tr':form.type==='tr'}" @click="form.type='tr'">⇄ โอน</button>
     </div>
 
-    <input class="amount-input" type="number" inputmode="decimal" min="0" step="0.01" v-model.number="form.amount" placeholder="0">
-    <div class="amount-lbl">จำนวนเงิน (บาท)</div>
+    <div class="amt-display" :class="form.type">{{amtDisplay}}</div>
+    <div class="amt-sub">{{amtExpr.includes('+')?'= '+fmt(amtVal)+' บาท':'จำนวนเงิน (บาท)'}}</div>
+    <div class="pad">
+      <button @click="padTap('7')">7</button><button @click="padTap('8')">8</button><button @click="padTap('9')">9</button><button class="fn" @click="padTap('⌫')">⌫</button>
+      <button @click="padTap('4')">4</button><button @click="padTap('5')">5</button><button @click="padTap('6')">6</button><button class="fn" @click="padTap('＋')">＋</button>
+      <button @click="padTap('1')">1</button><button @click="padTap('2')">2</button><button @click="padTap('3')">3</button><button class="fn" @click="padTap('C')">C</button>
+      <button @click="padTap('00')">00</button><button @click="padTap('0')">0</button><button @click="padTap('.')">.</button><button class="fn" @click="padTap('=')">=</button>
+    </div>
 
     <template v-if="form.type!=='tr'">
-      <div class="f-lbl">หมวดหมู่</div>
-      <div class="chips">
-        <button class="chip" v-for="c in cats[form.type]" :key="c" :class="{on:form.cat===c}" @click="form.cat=c">{{catIcon(c)}} {{c}}</button>
-        <button class="chip add-cat" @click="addCategory">＋ หมวดใหม่</button>
+      <div class="f-lbl">หมวดหมู่ (เรียงตามที่ใช้บ่อย)</div>
+      <div class="cat-grid">
+        <button class="cat-cell" v-for="c in sortedCats(form.type)" :key="c" :class="{on:form.cat===c}" @click="form.cat=c">
+          <span class="ci">{{catIcon(c)}}</span>{{c}}
+        </button>
+        <button class="cat-cell" style="border-style:dashed;color:var(--muted)" @click="addCategory"><span class="ci">＋</span>หมวดใหม่</button>
       </div>
-      <div class="f-lbl">บัญชี</div>
-      <div class="chips">
+      <div class="f-lbl" v-if="accounts.length>1">บัญชี</div>
+      <div class="chips" v-if="accounts.length>1">
         <button class="chip sm" v-for="a in accounts" :key="a.id" :class="{on:form.acc===a.id}" @click="form.acc=a.id">{{a.icon}} {{a.name}}</button>
       </div>
     </template>
@@ -502,9 +544,15 @@ nav button.fab-slot{position:relative}
       </div>
     </template>
 
-    <div class="f-row">
-      <div><label>วันที่</label><input type="date" v-model="form.date"></div>
-      <div><label>โน้ต (ถ้ามี)</label><input v-model="form.note" placeholder="เช่น ข้าวเที่ยง, ค่างวดรถ"></div>
+    <div class="f-lbl">วันที่</div>
+    <div class="date-row">
+      <button class="chip sm" :class="{on:form.date===todayStr()}" @click="form.date=todayStr()">วันนี้</button>
+      <button class="chip sm" :class="{on:form.date===yesterdayStr()}" @click="form.date=yesterdayStr()">เมื่อวาน</button>
+      <input type="date" v-model="form.date">
+    </div>
+    <div class="f-col"><label>โน้ต (ถ้ามี)</label>
+      <input v-model="form.note" list="note-sug" placeholder="เช่น ข้าวเที่ยง, ปตท">
+      <datalist id="note-sug"><option v-for="s in noteSugs" :key="s" :value="s"></option></datalist>
     </div>
 
     <div class="modal-acts">
@@ -836,33 +884,86 @@ setup(){
     budDraft[c]=null;
   };
 
-  /* ---- tx add/edit ---- */
+  /* ---- tx add/edit + quick entry (v2.2) ---- */
+  const amtExpr=ref('');
+  const amtVal=computed(()=>amtExpr.value.split('+').reduce((s,p)=>s+(parseFloat(p)||0),0));
+  const amtDisplay=computed(()=>amtExpr.value?amtExpr.value.replace(/\+/g,' + '):'0');
+  const padTap=k=>{
+    const v=amtExpr.value;
+    if(k==='C'){amtExpr.value='';return}
+    if(k==='⌫'){amtExpr.value=v.slice(0,-1);return}
+    if(k==='='){amtExpr.value=amtVal.value?String(+amtVal.value.toFixed(2)):'';return}
+    if(k==='＋'){if(/\d$/.test(v))amtExpr.value+='+';return}
+    if(k==='.'){const seg=v.split('+').pop();if(seg.includes('.'))return;amtExpr.value+=(seg===''?'0.':'.');return}
+    if(k==='00'){if(/\d$/.test(v))amtExpr.value+='00';return}
+    amtExpr.value+=k;
+  };
+  const yesterdayStr=()=>{const d=new Date(Date.now()-86400000);return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+
+  const catUsage=computed(()=>{
+    const m={in:{},out:{}};
+    tx.value.forEach(t=>{if(t.type!=='tr')m[t.type][t.cat]=(m[t.type][t.cat]||0)+1});
+    return m;
+  });
+  const sortedCats=type=>[...cats[type]].sort((a,b)=>(catUsage.value[type][b]||0)-(catUsage.value[type][a]||0));
+
+  const noteSugs=computed(()=>{
+    if(form.type==='tr')return[];
+    const seen=new Set(),out=[];
+    for(let i=tx.value.length-1;i>=0&&out.length<6;i--){
+      const t=tx.value[i];
+      if(t.type!==form.type)continue;
+      if(form.cat&&t.cat!==form.cat)continue;
+      const n=(t.note||'').replace(/\s*[📄⚡🔁]\s*$/,'').trim();
+      if(n&&!seen.has(n)){seen.add(n);out.push(n)}
+    }
+    return out;
+  });
+
+  const quickAdds=computed(()=>{
+    const cnt={};
+    tx.value.forEach(t=>{
+      if(t.type==='tr')return;
+      const k=`${t.type}|${t.cat}|${t.amount}`;
+      (cnt[k]=cnt[k]||{type:t.type,cat:t.cat,amount:t.amount,acc:t.acc,n:0}).n++;
+    });
+    return Object.values(cnt).filter(x=>x.n>=2).sort((a,b)=>b.n-a.n).slice(0,6);
+  });
+  const quickSave=q=>{
+    tx.value.push({id:++uid,date:todayStr(),type:q.type,cat:q.cat,amount:q.amount,
+      acc:q.acc||accounts.value[0]?.id,note:'⚡'});
+    showToast(`⚡ ${q.cat} ${q.type==='in'?'+':'−'}${fmt(q.amount)} บาท ✓ (แก้ได้ในแท็บรายการ)`);
+  };
+
   const canSave=computed(()=>{
-    if(!(Number(form.amount)>0&&form.date))return false;
+    if(!(amtVal.value>0&&form.date))return false;
     if(form.type==='tr')return form.acc&&form.accTo&&form.acc!==form.accTo;
     return !!form.cat&&!!form.acc;
   });
   const openAdd=()=>{
     editing.value=null;
+    amtExpr.value='';
     Object.assign(form,{type:'out',amount:null,cat:'',date:todayStr(),note:'',
       acc:accounts.value[0]?.id||'',accTo:accounts.value[1]?.id||accounts.value[0]?.id||''});
     modal.value='add';
   };
   const openEdit=t=>{
     editing.value=t;
+    amtExpr.value=String(t.amount);
     Object.assign(form,{type:t.type,amount:t.amount,cat:t.cat||'',date:t.date,note:t.note||'',
       acc:t.acc||accounts.value[0]?.id,accTo:t.accTo||accounts.value[0]?.id});
     modal.value='edit';
   };
   const saveTx=()=>{
     if(!canSave.value)return;
-    const payload={type:form.type,amount:Number(form.amount),date:form.date,note:form.note.trim(),
+    const amount=+amtVal.value.toFixed(2);
+    const payload={type:form.type,amount,date:form.date,note:form.note.trim(),
       cat:form.type==='tr'?'โอนเงิน':form.cat,acc:form.acc,accTo:form.type==='tr'?form.accTo:undefined};
     if(modal.value==='edit'&&editing.value){
       Object.assign(editing.value,payload);showToast('แก้ไขแล้ว ✓');
     }else{
       tx.value.push({id:++uid,...payload});
-      showToast(`บันทึกแล้ว ${fmt(form.amount)} บาท ✓`);
+      showToast(`บันทึกแล้ว ${fmt(amount)} บาท ✓`);
       if(!form.date.startsWith(ym.value))ym.value=form.date.slice(0,7);
     }
     modal.value=null;
@@ -1229,7 +1330,8 @@ setup(){
     spentByCat,budgetPct,totalBudget,setBudget,canSave,openAdd,openEdit,saveTx,askDelete,addCategory,
     openRec,saveRec,askDeleteRec,openGoal,saveGoal,addToGoal,askDeleteGoal,
     openAcc,saveAcc,askDeleteAcc,exportXlsx,backupJson,restoreJson,askClear,
-    imp,impFile,openImport,impRead,impPreview,impSelCount,impDupCount,impToggleAll,impSave};
+    imp,impFile,openImport,impRead,impPreview,impSelCount,impDupCount,impToggleAll,impSave,
+    amtExpr,amtVal,amtDisplay,padTap,todayStr,yesterdayStr,sortedCats,noteSugs,quickAdds,quickSave};
 }
 }).mount('#app');
 
